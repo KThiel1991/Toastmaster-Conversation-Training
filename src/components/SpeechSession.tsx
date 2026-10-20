@@ -11,9 +11,16 @@ import {
   type TimingPreset,
 } from "@/lib/timing";
 import { randomTopic } from "@/lib/topics";
+import type { EvaluateResponse } from "@/lib/evaluation";
+import Feedback from "@/components/Feedback";
 
 type Mode = "table-topics" | "speech";
 type Phase = "setup" | "thinking" | "recording" | "done";
+type Result =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "done"; data: EvaluateResponse };
 
 const LIGHT_STYLES: Record<Light, string> = {
   none: "bg-zinc-200 dark:bg-zinc-800",
@@ -41,11 +48,15 @@ export default function SpeechSession() {
   const [countdown, setCountdown] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<Result>({ status: "idle" });
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startRef = useRef(0);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Refs, weil die Aufnahme-Callbacks sonst veraltete State-Werte sehen
+  const topicRef = useRef("");
+  const durationRef = useRef(0);
 
   const preset: TimingPreset =
     mode === "table-topics"
@@ -77,6 +88,7 @@ export default function SpeechSession() {
     setElapsed(0);
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
+    setResult({ status: "idle" });
     try {
       // Mikrofon schon vor der Bedenkzeit anfragen, damit die Aufnahme sofort startet
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -85,7 +97,9 @@ export default function SpeechSession() {
       return;
     }
     if (mode === "table-topics") {
-      setTopic((t) => randomTopic(t));
+      const next = randomTopic(topicRef.current);
+      topicRef.current = next;
+      setTopic(next);
       setCountdown(thinkSeconds);
       setPhase("thinking");
       // Bedenkzeit herunterzählen, danach startet die Aufnahme automatisch
@@ -116,15 +130,42 @@ export default function SpeechSession() {
       setAudioUrl(URL.createObjectURL(blob));
       stream.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      evaluate(blob);
+    };
+    // Zeitmessung erst starten, wenn die Aufnahme wirklich läuft
+    recorder.onstart = () => {
+      startRef.current = Date.now();
+      setPhase("recording");
     };
     recorder.start();
     recorderRef.current = recorder;
-    startRef.current = Date.now();
-    setPhase("recording");
+  }
+
+  async function evaluate(blob: Blob) {
+    setResult({ status: "loading" });
+    const form = new FormData();
+    const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
+    form.append("audio", blob, `rede.${ext}`);
+    form.append("mode", mode);
+    form.append("presetId", presetId);
+    form.append("durationSeconds", String(durationRef.current));
+    if (mode === "table-topics") form.append("topic", topicRef.current);
+    try {
+      const res = await fetch("/api/evaluate", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Die Auswertung ist fehlgeschlagen.");
+      setResult({ status: "done", data: json as EvaluateResponse });
+    } catch (e) {
+      setResult({
+        status: "error",
+        message: e instanceof Error ? e.message : "Die Auswertung ist fehlgeschlagen.",
+      });
+    }
   }
 
   function stop() {
-    setElapsed((Date.now() - startRef.current) / 1000);
+    durationRef.current = (Date.now() - startRef.current) / 1000;
+    setElapsed(durationRef.current);
     recorderRef.current?.stop();
     setPhase("done");
   }
@@ -244,9 +285,15 @@ export default function SpeechSession() {
             <p className="text-sm mt-1">{timingVerdict(elapsed, preset)}</p>
           </div>
           {audioUrl && <audio controls src={audioUrl} className="w-full" />}
-          <p className="text-sm text-zinc-500">
-            Transkript, Füllwörter-Zählung und KI-Feedback folgen im nächsten Schritt.
-          </p>
+          {result.status === "loading" && (
+            <p className="text-sm text-zinc-500 animate-pulse">
+              Die Rede wird transkribiert und ausgewertet …
+            </p>
+          )}
+          {result.status === "error" && (
+            <p className="text-sm text-red-600">{result.message}</p>
+          )}
+          {result.status === "done" && <Feedback data={result.data} />}
           <button
             onClick={reset}
             className="rounded-xl bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700"
