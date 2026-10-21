@@ -28,3 +28,11 @@ Dann http://localhost:3000 öffnen und das Mikrofon erlauben.
 ```bash
 npm test
 ```
+
+## Online stellen (z. B. für das iPhone)
+
+1. Auf [vercel.com](https://vercel.com) mit GitHub anmelden und dieses Repo als Projekt importieren.
+2. Unter „Environment Variables“ `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` und `APP_PASSWORD` eintragen, dann „Deploy“.
+3. Die Vercel-Adresse in Safari öffnen, mit dem Passwort anmelden und über Teilen → „Zum Home-Bildschirm“ als App ablegen.
+
+Ist `APP_PASSWORD` gesetzt, sind App und API nur nach Anmeldung erreichbar, damit niemand Fremdes auf deine Kosten Reden auswerten lässt. Die Anmeldung gilt ein Jahr. Die App vom Home-Bildschirm hat eigene Cookies, dort meldest du dich einmal separat an.

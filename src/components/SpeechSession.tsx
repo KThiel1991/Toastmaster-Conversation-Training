@@ -22,6 +22,9 @@ import type { EvaluateResponse } from "@/lib/evaluation";
 import Feedback from "@/components/Feedback";
 
 type Mode = "table-topics" | "speech";
+
+/** Vercel nimmt höchstens 4,5 MB pro Anfrage an */
+const MAX_UPLOAD_BYTES = 4.4 * 1024 * 1024;
 type Phase = "setup" | "thinking" | "recording" | "done";
 type Result =
   | { status: "idle" }
@@ -137,7 +140,9 @@ export default function SpeechSession() {
     const stream = streamRef.current;
     if (!stream) return;
     const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(stream);
+    // Niedrige Bitrate reicht für Sprache und hält auch 10-Minuten-Reden
+    // unter dem Upload-Limit von Vercel (4,5 MB)
+    const recorder = new MediaRecorder(stream, { audioBitsPerSecond: 32_000 });
     recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);
     recorder.onstop = () => {
       const blob = new Blob(chunks, { type: recorder.mimeType });
@@ -156,6 +161,13 @@ export default function SpeechSession() {
   }
 
   async function evaluate(blob: Blob) {
+    if (blob.size > MAX_UPLOAD_BYTES) {
+      setResult({
+        status: "error",
+        message: "Die Aufnahme ist zu groß für die Auswertung. Bitte eine kürzere Rede aufnehmen.",
+      });
+      return;
+    }
     setResult({ status: "loading" });
     const form = new FormData();
     const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";

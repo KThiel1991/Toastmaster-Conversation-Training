@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Speech Coach",
   description: "Table Topics und vorbereitete Reden üben, mit KI-Feedback",
+  appleWebApp: { title: "Speech Coach", capable: true, statusBarStyle: "default" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
