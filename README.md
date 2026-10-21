@@ -4,8 +4,8 @@ Web-App zum Üben von Toastmasters-Redeformaten (Table Topics und vorbereitete R
 
 ## Stand
 
-- Table Topics: zufälliges Thema, Bedenkzeit, Aufnahme mit Ampel (grün 1:00, gelb 1:30, rot 2:00)
-- Vorbereitete Rede: Redetyp wählen, Aufnahme mit passender Ampel
+- Table Topics: zufälliges Thema aus 7 Kategorien (oder allen), Bedenkzeit, Aufnahme mit Ampel (grün 1:00, gelb 1:30, rot 2:00)
+- Vorbereitete Rede: Redetyp wählen, Themenvorschläge aus 6 Kategorien oder eigener Titel, Aufnahme mit passender Ampel
 - Timer-Report und Aufnahme zum Nachhören
 - Transkript mit OpenAI Whisper, markierte Füllwörter
 - Ah-Counter: Füllwörter, Wörter pro Minute, lange Pausen (deterministisch berechnet)
