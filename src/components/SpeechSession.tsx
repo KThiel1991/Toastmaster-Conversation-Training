@@ -10,7 +10,14 @@ import {
   type Light,
   type TimingPreset,
 } from "@/lib/timing";
-import { randomTopic } from "@/lib/topics";
+import {
+  ALL_CATEGORIES,
+  SPEECH_CATEGORIES,
+  TABLE_TOPIC_CATEGORIES,
+  randomSpeechIdea,
+  randomTopic,
+  type SpeechIdea,
+} from "@/lib/topics";
 import type { EvaluateResponse } from "@/lib/evaluation";
 import Feedback from "@/components/Feedback";
 
@@ -43,6 +50,10 @@ export default function SpeechSession() {
   const [presetId, setPresetId] = useState(SPEECH_PRESETS[1].id);
   const [thinkSeconds, setThinkSeconds] = useState(5);
   const [topic, setTopic] = useState("");
+  const [topicCategory, setTopicCategory] = useState(ALL_CATEGORIES);
+  const [speechCategory, setSpeechCategory] = useState(ALL_CATEGORIES);
+  const [speechIdea, setSpeechIdea] = useState<SpeechIdea | null>(null);
+  const [speechTitle, setSpeechTitle] = useState("");
   const [phase, setPhase] = useState<Phase>("setup");
   const [elapsed, setElapsed] = useState(0);
   const [countdown, setCountdown] = useState(0);
@@ -59,18 +70,13 @@ export default function SpeechSession() {
   const durationRef = useRef(0);
 
   const preset: TimingPreset =
-    mode === "table-topics"
-      ? TABLE_TOPICS
-      : SPEECH_PRESETS.find((p) => p.id === presetId)!;
+    mode === "table-topics" ? TABLE_TOPICS : SPEECH_PRESETS.find((p) => p.id === presetId)!;
   const light = phase === "recording" ? lightFor(elapsed, preset) : "none";
 
   // Timer während der Aufnahme
   useEffect(() => {
     if (phase !== "recording") return;
-    const id = setInterval(
-      () => setElapsed((Date.now() - startRef.current) / 1000),
-      200,
-    );
+    const id = setInterval(() => setElapsed((Date.now() - startRef.current) / 1000), 200);
     return () => clearInterval(id);
   }, [phase]);
 
@@ -97,7 +103,7 @@ export default function SpeechSession() {
       return;
     }
     if (mode === "table-topics") {
-      const next = randomTopic(topicRef.current);
+      const next = randomTopic(topicCategory, topicRef.current);
       topicRef.current = next;
       setTopic(next);
       setCountdown(thinkSeconds);
@@ -115,8 +121,16 @@ export default function SpeechSession() {
         }
       }, 1000);
     } else {
+      topicRef.current = speechTitle.trim();
+      setTopic(topicRef.current);
       startRecording();
     }
+  }
+
+  function suggestSpeech(categoryId = speechCategory) {
+    const idea = randomSpeechIdea(categoryId, speechIdea ?? undefined);
+    setSpeechIdea(idea);
+    setSpeechTitle(idea.title);
   }
 
   function startRecording() {
@@ -149,7 +163,7 @@ export default function SpeechSession() {
     form.append("mode", mode);
     form.append("presetId", presetId);
     form.append("durationSeconds", String(durationRef.current));
-    if (mode === "table-topics") form.append("topic", topicRef.current);
+    if (topicRef.current) form.append("topic", topicRef.current);
     try {
       const res = await fetch("/api/evaluate", { method: "POST", body: form });
       const json = await res.json();
@@ -204,31 +218,92 @@ export default function SpeechSession() {
           </div>
 
           {mode === "table-topics" ? (
-            <label className="flex flex-col gap-1 text-sm">
-              Bedenkzeit: {thinkSeconds} Sekunden
-              <input
-                type="range"
-                min={0}
-                max={15}
-                value={thinkSeconds}
-                onChange={(e) => setThinkSeconds(Number(e.target.value))}
-              />
-            </label>
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                Themenkategorie
+                <select
+                  value={topicCategory}
+                  onChange={(e) => setTopicCategory(e.target.value)}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent p-2"
+                >
+                  <option value={ALL_CATEGORIES}>Alle Kategorien (Zufall)</option>
+                  {TABLE_TOPIC_CATEGORIES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                Bedenkzeit: {thinkSeconds} Sekunden
+                <input
+                  type="range"
+                  min={0}
+                  max={15}
+                  value={thinkSeconds}
+                  onChange={(e) => setThinkSeconds(Number(e.target.value))}
+                />
+              </label>
+            </>
           ) : (
-            <label className="flex flex-col gap-1 text-sm">
-              Redetyp
-              <select
-                value={presetId}
-                onChange={(e) => setPresetId(e.target.value)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent p-2"
-              >
-                {SPEECH_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <>
+              <label className="flex flex-col gap-1 text-sm">
+                Redetyp
+                <select
+                  value={presetId}
+                  onChange={(e) => setPresetId(e.target.value)}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent p-2"
+                >
+                  {SPEECH_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+                <label className="flex flex-col gap-1 text-sm">
+                  Themenvorschläge aus Kategorie
+                  <select
+                    value={speechCategory}
+                    onChange={(e) => {
+                      setSpeechCategory(e.target.value);
+                      suggestSpeech(e.target.value);
+                    }}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent p-2"
+                  >
+                    <option value={ALL_CATEGORIES}>Alle Kategorien</option>
+                    {SPEECH_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {speechIdea && (
+                  <div data-testid="speech-idea">
+                    <p className="font-semibold">{speechIdea.title}</p>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400">{speechIdea.hint}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => suggestSpeech()}
+                  className="self-start rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm font-medium"
+                >
+                  {speechIdea ? "Anderer Vorschlag" : "Vorschlag ziehen"}
+                </button>
+                <label className="flex flex-col gap-1 text-sm">
+                  Titel deiner Rede (optional)
+                  <input
+                    value={speechTitle}
+                    onChange={(e) => setSpeechTitle(e.target.value)}
+                    placeholder="Eigenes Thema eingeben oder Vorschlag übernehmen"
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-transparent p-2"
+                  />
+                </label>
+              </div>
+            </>
           )}
 
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -246,7 +321,7 @@ export default function SpeechSession() {
         </section>
       )}
 
-      {phase !== "setup" && mode === "table-topics" && topic && (
+      {phase !== "setup" && topic && (
         <blockquote className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 text-xl font-medium">
           {topic}
         </blockquote>
@@ -290,9 +365,7 @@ export default function SpeechSession() {
               Die Rede wird transkribiert und ausgewertet …
             </p>
           )}
-          {result.status === "error" && (
-            <p className="text-sm text-red-600">{result.message}</p>
-          )}
+          {result.status === "error" && <p className="text-sm text-red-600">{result.message}</p>}
           {result.status === "done" && <Feedback data={result.data} />}
           <button
             onClick={reset}
