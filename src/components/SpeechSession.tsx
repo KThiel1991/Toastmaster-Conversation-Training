@@ -20,8 +20,9 @@ import {
 } from "@/lib/topics";
 import type { EvaluateResponse } from "@/lib/evaluation";
 import Feedback from "@/components/Feedback";
+import InterviewSession from "@/components/InterviewSession";
 
-type Mode = "table-topics" | "speech";
+type Mode = "table-topics" | "speech" | "interview";
 
 /** Vercel nimmt höchstens 4,5 MB pro Anfrage an */
 const MAX_UPLOAD_BYTES = 4.4 * 1024 * 1024;
@@ -208,17 +209,18 @@ export default function SpeechSession() {
     <div className="w-full max-w-xl mx-auto flex flex-col gap-6">
       {phase === "setup" && (
         <section className="flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 p-1">
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 p-1">
             {(
               [
                 ["table-topics", "Table Topics"],
                 ["speech", "Vorbereitete Rede"],
+                ["interview", "HR-Interview"],
               ] as const
             ).map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setMode(id)}
-                className={`rounded-lg py-2 text-sm font-medium ${
+                className={`rounded-lg px-1 py-2 text-sm font-medium leading-tight ${
                   mode === id
                     ? "bg-white dark:bg-zinc-700 shadow"
                     : "text-zinc-600 dark:text-zinc-400"
@@ -229,7 +231,12 @@ export default function SpeechSession() {
             ))}
           </div>
 
-          {mode === "table-topics" ? (
+          {/* Bleibt beim Tab-Wechsel erhalten, damit ein laufendes Interview nicht verloren geht */}
+          <div hidden={mode !== "interview"}>
+            <InterviewSession />
+          </div>
+
+          {mode === "interview" ? null : mode === "table-topics" ? (
             <>
               <label className="flex flex-col gap-1 text-sm">
                 Themenkategorie
@@ -318,6 +325,8 @@ export default function SpeechSession() {
             </>
           )}
 
+          {mode !== "interview" && (
+          <>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             Ampel: grün ab {formatTime(preset.green)}, gelb ab {formatTime(preset.yellow)}, rot ab{" "}
             {formatTime(preset.red)}.
@@ -330,6 +339,8 @@ export default function SpeechSession() {
             {mode === "table-topics" ? "Thema ziehen und starten" : "Rede starten"}
           </button>
           {error && <p className="text-sm text-red-600">{error}</p>}
+          </>
+          )}
         </section>
       )}
 

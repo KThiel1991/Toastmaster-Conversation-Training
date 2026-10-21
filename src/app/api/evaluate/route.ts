@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import OpenAI from "openai";
 import {
   EvaluationSchema,
   SYSTEM_PROMPT,
@@ -9,12 +8,9 @@ import {
 } from "@/lib/evaluation";
 import { computeMetrics } from "@/lib/metrics";
 import { SPEECH_PRESETS, TABLE_TOPICS, timingVerdict } from "@/lib/timing";
+import { transcribe } from "@/lib/transcribe";
 
 export const maxDuration = 120;
-
-// Whisper glättet Füllwörter gern weg. Ein Prompt mit Füllwörtern sorgt dafür,
-// dass sie im Transkript stehen bleiben.
-const WHISPER_PROMPT = "Ähm, also, äh, ich meine, halt, sozusagen... Uh, um, like, you know.";
 
 function error(status: number, message: string) {
   return Response.json({ error: message }, { status });
@@ -45,16 +41,7 @@ export async function POST(request: Request) {
   let transcript: string;
   let words: { word: string; start: number; end: number }[];
   try {
-    const openai = new OpenAI();
-    const result = await openai.audio.transcriptions.create({
-      file: audio,
-      model: "whisper-1",
-      response_format: "verbose_json",
-      timestamp_granularities: ["word"],
-      prompt: WHISPER_PROMPT,
-    });
-    transcript = result.text.trim();
-    words = result.words ?? [];
+    ({ transcript, words } = await transcribe(audio));
   } catch (e) {
     console.error("Transkription fehlgeschlagen", e);
     return error(502, "Die Transkription ist fehlgeschlagen. Ist der OpenAI-Key gültig und aufgeladen?");
