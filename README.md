@@ -1,6 +1,6 @@
 # Speech Coach
 
-Web-App zum Üben von Toastmasters-Redeformaten (Table Topics und vorbereitete Reden), mit Zeitampel und KI-Feedback.
+Web-App zum Üben von Toastmasters-Redeformaten (Table Topics und vorbereitete Reden) und HR-Erstgesprächen, mit Zeitampel und KI-Feedback.
 
 ## Stand
 
@@ -10,6 +10,7 @@ Web-App zum Üben von Toastmasters-Redeformaten (Table Topics und vorbereitete R
 - Transkript mit OpenAI Whisper, markierte Füllwörter
 - Ah-Counter: Füllwörter, Wörter pro Minute, lange Pausen (deterministisch berechnet)
 - KI-Evaluation mit Claude nach Toastmasters-Bogen: Punkte je Kriterium, Stärken, Verbesserungen, Grammarian, Fazit
+- HR-Interview (erste Runde): Lebenslauf und Zeugnisse (PDF oder Foto, auch gescannt) plus Stellenbeschreibung und optional Firmen-Website hochladen. Claude schlägt 8 bis 10 passende Fragen vor, du wählst die Einstiegsfragen, dann führt eine KI-Recruiterin das Gespräch und hakt nach. Antworten per Sprache oder Text, Fragen werden auf Wunsch vorgelesen. Am Ende gibt es Feedback und eine Einschätzung zur zweiten Runde. PDFs werden im Browser in Text umgewandelt, gespeichert wird nichts.
 
 ## Starten
 
