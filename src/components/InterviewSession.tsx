@@ -11,6 +11,9 @@ import type {
   TurnResponse,
 } from "@/lib/interview";
 import { formatTime } from "@/lib/timing";
+import { createEntry, saveEntry, type HistoryEntry } from "@/lib/history";
+import InterviewFeedbackView from "@/components/InterviewFeedbackView";
+import FeedbackActions from "@/components/FeedbackActions";
 
 type Phase = "setup" | "preparing" | "choose" | "interview" | "feedback";
 type Busy = "idle" | "recording" | "sending";
@@ -141,6 +144,8 @@ export default function InterviewSession() {
   const [writing, setWriting] = useState(false);
   const [answerText, setAnswerText] = useState("");
   const [feedback, setFeedback] = useState<FeedbackState>({ status: "loading" });
+  const [entry, setEntry] = useState<HistoryEntry | null>(null);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -324,6 +329,8 @@ export default function InterviewSession() {
     if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
     setPhase("feedback");
     setFeedback({ status: "loading" });
+    setEntry(null);
+    setSaved(false);
     try {
       const res = await fetch("/api/interview/feedback", {
         method: "POST",
@@ -332,7 +339,21 @@ export default function InterviewSession() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Das Feedback ist fehlgeschlagen.");
-      setFeedback({ status: "done", feedback: data.feedback as InterviewFeedback });
+      const result = data.feedback as InterviewFeedback;
+      setFeedback({ status: "done", feedback: result });
+      const p = prep!.preparation;
+      const created = createEntry({
+        kind: "interview",
+        companyName: p.companyName,
+        roleTitle: p.roleTitle,
+        recruiterName: p.recruiterName,
+        feedback: result,
+        history: historyRef.current,
+      });
+      setEntry(created);
+      saveEntry(created)
+        .then(() => setSaved(true))
+        .catch(() => {}); // Ohne Speicher (z. B. privater Modus) bleibt nur der PDF-Download
     } catch (e) {
       setFeedback({ status: "error", message: e instanceof Error ? e.message : "Das Feedback ist fehlgeschlagen." });
     }
@@ -573,15 +594,6 @@ export default function InterviewSession() {
   }
 
   // Feedback
-  const spoken = answers.filter((m) => m.stats);
-  const minutes = spoken.reduce((sum, m) => sum + m.stats!.durationSeconds, 0) / 60;
-  const fillers = spoken.reduce((sum, m) => sum + m.stats!.fillerTotal, 0);
-  const verdictStyle = {
-    ja: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-    vielleicht: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-    "eher nicht": "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  };
-
   return (
     <section className="flex flex-col gap-4">
       {feedback.status === "loading" && (
@@ -595,72 +607,23 @@ export default function InterviewSession() {
           </button>
         </>
       )}
-      {feedback.status === "done" && (
+      {feedback.status === "done" ? (
         <>
-          <Card title="Zweite Runde?">
-            <p className={`self-start rounded-full px-3 py-1 text-sm font-semibold ${verdictStyle[feedback.feedback.nextRound]}`}>
-              {feedback.feedback.nextRound === "ja" ? "Ja" : feedback.feedback.nextRound === "vielleicht" ? "Vielleicht" : "Eher nicht"}
-            </p>
-            <p className="text-sm">{feedback.feedback.nextRoundReason}</p>
-          </Card>
-          {spoken.length > 0 && (
-            <Card title="Ah-Counter">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-2xl font-bold tabular-nums">{fillers}</p>
-                  <p className="text-xs text-zinc-500">Füllwörter</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tabular-nums">{minutes > 0 ? Math.round((fillers / minutes) * 10) / 10 : 0}</p>
-                  <p className="text-xs text-zinc-500">Füllwörter / Min.</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tabular-nums">{formatTime((minutes * 60) / spoken.length)}</p>
-                  <p className="text-xs text-zinc-500">Ø Antwortlänge</p>
-                </div>
-              </div>
-            </Card>
-          )}
-          <Card title="Das war stark">
-            <ul className="list-disc pl-5 text-sm flex flex-col gap-1">
-              {feedback.feedback.strengths.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
-          </Card>
-          <Card title="Nächstes Mal">
-            <ul className="list-disc pl-5 text-sm flex flex-col gap-1">
-              {feedback.feedback.improvements.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
-          </Card>
-          <Card title="Antwort für Antwort">
-            <ul className="flex flex-col gap-4 text-sm">
-              {feedback.feedback.answers.map((a, i) => (
-                <li key={i} className="flex flex-col gap-1">
-                  <p className="font-medium">{a.question}</p>
-                  <p>{a.assessment}</p>
-                  <p className="text-zinc-600 dark:text-zinc-400">Tipp: {a.tip}</p>
-                </li>
-              ))}
-            </ul>
-          </Card>
-          <Card title="Fazit">
-            <p className="text-sm">{feedback.feedback.summary}</p>
-          </Card>
+          <InterviewFeedbackView feedback={feedback.feedback} history={history} recruiterName={p.recruiterName} />
+          <FeedbackActions entry={entry} saved={saved} />
         </>
+      ) : (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-zinc-600 dark:text-zinc-400">Gesprächsprotokoll</summary>
+          <div className="flex flex-col gap-2 mt-2">
+            {history.map((m, i) => (
+              <p key={i} className="whitespace-pre-line">
+                <strong>{m.role === "recruiter" ? p.recruiterName : "Du"}:</strong> {m.text}
+              </p>
+            ))}
+          </div>
+        </details>
       )}
-      <details className="text-sm">
-        <summary className="cursor-pointer text-zinc-600 dark:text-zinc-400">Gesprächsprotokoll</summary>
-        <div className="flex flex-col gap-2 mt-2">
-          {history.map((m, i) => (
-            <p key={i} className="whitespace-pre-line">
-              <strong>{m.role === "recruiter" ? p.recruiterName : "Du"}:</strong> {m.text}
-            </p>
-          ))}
-        </div>
-      </details>
       <button onClick={() => setPhase("choose")} className={PRIMARY}>
         Gleiche Stelle nochmal üben
       </button>

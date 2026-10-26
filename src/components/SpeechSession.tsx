@@ -20,6 +20,8 @@ import {
 } from "@/lib/topics";
 import type { EvaluateResponse } from "@/lib/evaluation";
 import Feedback from "@/components/Feedback";
+import FeedbackActions from "@/components/FeedbackActions";
+import { createEntry, saveEntry, type HistoryEntry } from "@/lib/history";
 import InterviewSession from "@/components/InterviewSession";
 
 type Mode = "table-topics" | "speech" | "interview";
@@ -64,6 +66,8 @@ export default function SpeechSession() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result>({ status: "idle" });
+  const [entry, setEntry] = useState<HistoryEntry | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -99,6 +103,8 @@ export default function SpeechSession() {
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
     setResult({ status: "idle" });
+    setEntry(null);
+    setSaved(false);
     try {
       // Mikrofon schon vor der Bedenkzeit anfragen, damit die Aufnahme sofort startet
       streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -182,6 +188,21 @@ export default function SpeechSession() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Die Auswertung ist fehlgeschlagen.");
       setResult({ status: "done", data: json as EvaluateResponse });
+      if (mode !== "interview") {
+        const created = createEntry({
+          kind: "speech",
+          mode,
+          topic: topicRef.current,
+          presetLabel: preset.label,
+          timingVerdict: timingVerdict(durationRef.current, preset),
+          durationSeconds: durationRef.current,
+          result: json as EvaluateResponse,
+        });
+        setEntry(created);
+        saveEntry(created)
+          .then(() => setSaved(true))
+          .catch(() => {}); // Ohne Speicher (z. B. privater Modus) bleibt nur der PDF-Download
+      }
     } catch (e) {
       setResult({
         status: "error",
@@ -326,20 +347,20 @@ export default function SpeechSession() {
           )}
 
           {mode !== "interview" && (
-          <>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Ampel: grün ab {formatTime(preset.green)}, gelb ab {formatTime(preset.yellow)}, rot ab{" "}
-            {formatTime(preset.red)}.
-          </p>
+            <>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Ampel: grün ab {formatTime(preset.green)}, gelb ab {formatTime(preset.yellow)}, rot
+                ab {formatTime(preset.red)}.
+              </p>
 
-          <button
-            onClick={begin}
-            className="rounded-xl bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700"
-          >
-            {mode === "table-topics" ? "Thema ziehen und starten" : "Rede starten"}
-          </button>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          </>
+              <button
+                onClick={begin}
+                className="rounded-xl bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700"
+              >
+                {mode === "table-topics" ? "Thema ziehen und starten" : "Rede starten"}
+              </button>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+            </>
           )}
         </section>
       )}
@@ -389,7 +410,12 @@ export default function SpeechSession() {
             </p>
           )}
           {result.status === "error" && <p className="text-sm text-red-600">{result.message}</p>}
-          {result.status === "done" && <Feedback data={result.data} />}
+          {result.status === "done" && (
+            <>
+              <Feedback data={result.data} />
+              <FeedbackActions entry={entry} saved={saved} />
+            </>
+          )}
           <button
             onClick={reset}
             className="rounded-xl bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700"
