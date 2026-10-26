@@ -10,7 +10,8 @@ Web-App zum Üben von Toastmasters-Redeformaten (Table Topics und vorbereitete R
 - Transkript mit OpenAI Whisper, markierte Füllwörter
 - Ah-Counter: Füllwörter, Wörter pro Minute, lange Pausen (deterministisch berechnet)
 - KI-Evaluation mit Claude nach Toastmasters-Bogen: Punkte je Kriterium, Stärken, Verbesserungen, Grammarian, Fazit
-- HR-Interview (erste Runde): Lebenslauf und Zeugnisse (PDF oder Foto, auch gescannt) plus Stellenbeschreibung und optional Firmen-Website hochladen. Claude schlägt 8 bis 10 passende Fragen vor, du wählst die Einstiegsfragen, dann führt eine KI-Recruiterin das Gespräch und hakt nach. Antworten per Sprache oder Text, Fragen werden auf Wunsch vorgelesen. Am Ende gibt es Feedback und eine Einschätzung zur zweiten Runde. PDFs werden im Browser in Text umgewandelt, gespeichert wird nichts.
+- HR-Interview (erste Runde): Lebenslauf und Zeugnisse (PDF oder Foto, auch gescannt) plus Stellenbeschreibung und optional Firmen-Website hochladen. Claude schlägt 8 bis 10 passende Fragen vor, du wählst die Einstiegsfragen, dann führt eine KI-Recruiterin das Gespräch und hakt nach. Antworten per Sprache oder Text, Fragen werden auf Wunsch vorgelesen. Am Ende gibt es Feedback und eine Einschätzung zur zweiten Runde. PDFs werden im Browser in Text umgewandelt. Die hochgeladenen Unterlagen werden nicht gespeichert, nur das Feedback samt Gesprächsprotokoll landet im Verlauf.
+- Feedback als PDF herunterladen (alle Formate) und Verlauf unter `/verlauf`: jedes Feedback wird automatisch im Browser gespeichert (IndexedDB), lässt sich dort wieder öffnen, als PDF laden oder löschen. Der Verlauf liegt nur auf dem jeweiligen Gerät; auf dem iPhone hat die Home-Bildschirm-App einen eigenen Speicher, getrennt von Safari. Wer die Browserdaten löscht, löscht auch den Verlauf, heruntergeladene PDFs bleiben.
 
 ## Starten
 
