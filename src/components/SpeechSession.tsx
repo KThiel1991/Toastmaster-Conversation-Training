@@ -15,7 +15,7 @@ import {
   SPEECH_CATEGORIES,
   TABLE_TOPIC_CATEGORIES,
   randomSpeechIdea,
-  randomTopic,
+  nextTopic,
   type SpeechIdea,
 } from "@/lib/topics";
 import type { EvaluateResponse } from "@/lib/evaluation";
@@ -113,7 +113,7 @@ export default function SpeechSession() {
       return;
     }
     if (mode === "table-topics") {
-      const next = randomTopic(topicCategory, topicRef.current);
+      const next = nextTopic(topicCategory, topicRef.current);
       topicRef.current = next;
       setTopic(next);
       setCountdown(thinkSeconds);
